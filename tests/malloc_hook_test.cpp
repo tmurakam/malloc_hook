@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include <dlfcn.h>
 
-#include "malloc_hook.h"
+#include "../malloc_hook.h"
 
 static void *last_malloc_ptr;
 static int last_malloc_size;

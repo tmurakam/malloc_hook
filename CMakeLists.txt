@@ -22,7 +22,7 @@ enable_testing()
 # test program
 add_executable(
         malloc_hook_test
-        malloc_hook_test.cpp
+        tests/malloc_hook_test.cpp
 )
 target_link_libraries(
         malloc_hook_test
