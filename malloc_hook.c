@@ -24,6 +24,13 @@ static char *buffer_ptr = static_buffer;
 static bool initializing = false;
 static bool in_hook = false;
 
+typedef struct strMemHeader {
+    unsigned long magic;
+    size_t size;
+} MemHeader;
+
+static const long MAGIC = 0xdeadbeef;
+
 /**
  * Initializer
  */
@@ -87,7 +94,10 @@ void *malloc(size_t size) {
     pthread_mutex_lock(&ma_mutex);
     ma_init();
     if (org_malloc != NULL) {
-        ret = org_malloc(size);
+        MemHeader *header = org_malloc(sizeof(MemHeader) + size);
+        header->magic = MAGIC;
+        header->size = size;
+        ret = header + 1;
         if (malloc_hook && !in_hook) {
             in_hook = true;
             malloc_hook(ret, size, __builtin_return_address(0));
@@ -117,16 +127,40 @@ void *calloc(size_t n, size_t size) {
 /**
  * replaced realloc
  */
-void *realloc(void *ptr, size_t size) {
+void *realloc(void *oldPtr, size_t newSize) {
     pthread_mutex_lock(&ma_mutex);
-    void *ret = org_realloc(ptr, size);
+
+    bool hasHeader = true;
+    MemHeader *header = NULL;
+    size_t oldSize = 0;
+    void *real_ptr = oldPtr;
+
+    if (oldPtr != NULL) {
+        header = oldPtr - sizeof(MemHeader);
+        if (header->magic == MAGIC) {
+            real_ptr = header;
+            oldSize = header->size;
+        } else {
+            // Not malloced by me...
+            hasHeader = false;
+        }
+    }
+
+    void *newRealPtr = org_realloc(real_ptr, hasHeader ? newSize + sizeof(MemHeader) : newSize);
+    void *newPtr = newRealPtr;
+    if (hasHeader) {
+        header = newRealPtr;
+        header->magic = MAGIC;
+        header->size = newSize;
+        newPtr = header + 1;
+    }
     if (realloc_hook && !in_hook) {
         in_hook = true;
-        realloc_hook(ptr, ret, size, __builtin_return_address(0));
+        realloc_hook(oldPtr, oldSize, newPtr, newSize, __builtin_return_address(0));
         in_hook = false;
     }
     pthread_mutex_unlock(&ma_mutex);
-    return ret;
+    return newPtr;
 }
 
 /**
@@ -135,12 +169,19 @@ void *realloc(void *ptr, size_t size) {
 void free(void *ptr) {
     pthread_mutex_lock(&ma_mutex);
     if ((char*)ptr < static_buffer || static_buffer + sizeof(static_buffer) <= (char*)ptr) {
+        void *real_ptr = ptr;
+        MemHeader *header = ptr - sizeof(MemHeader);
+        size_t size = 0;
+        if (header->magic == MAGIC) {
+            real_ptr = header;
+            size = header->size;
+        }
         if (free_hook && !in_hook) {
             in_hook = true;
-            free_hook(ptr, __builtin_return_address(0));
+            free_hook(ptr, size, __builtin_return_address(0));
             in_hook = false;
         }
-        org_free(ptr);
+        org_free(real_ptr);
     }
     pthread_mutex_unlock(&ma_mutex);
 }
