@@ -29,6 +29,10 @@ void free_hook(void *ptr, size_t size, void *caller) {
 class HookSetUp {
 public:
     HookSetUp() {
+        setUp();
+    }
+
+    void setUp() {
         set_malloc_hook(malloc_hook);
         set_realloc_hook(realloc_hook);
         set_free_hook(free_hook);
@@ -38,6 +42,7 @@ public:
 static HookSetUp _hookSetUp;
 
 TEST(MallocHookTest, init) {
+    _hookSetUp.setUp();
     long initial = get_malloc_total();
 
     void *p = malloc(100);
@@ -52,6 +57,7 @@ TEST(MallocHookTest, init) {
 }
 
 TEST(MallocHookTest, realloc) {
+    _hookSetUp.setUp();
     long initial = get_malloc_total();
 
     // realloc as malloc

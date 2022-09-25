@@ -62,6 +62,18 @@ long get_malloc_total();
  */
 void dump_backtrace(int depth);
 
+/**
+ * start memory trace
+ * @param argv0  Program name (argv[0])
+ * @param filename  Log file name
+ */
+void malloc_hook_mtrace(const char *argv0, const char *filename);
+
+/**
+ * stop memory trace
+ */
+void malloc_hook_muntrace();
+
 #ifdef __cplusplus
 };
 #endif

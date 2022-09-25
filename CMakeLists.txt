@@ -4,7 +4,10 @@ project(malloc_hook VERSION 0.0.1)
 set(CMAKE_CXX_STANDARD 14)
 
 # library
-add_library(malloc_hook SHARED malloc_hook.c)
+add_library(malloc_hook SHARED
+        malloc_hook.c
+        mtrace.c
+)
 target_link_libraries(malloc_hook dl)
 
 # google test
@@ -23,6 +26,7 @@ enable_testing()
 add_executable(
         malloc_hook_test
         tests/malloc_hook_test.cpp
+        tests/mtrace_test.cpp
 )
 target_link_libraries(
         malloc_hook_test
