@@ -27,11 +27,12 @@ void malloc_hook(void *ptr, size_t size, void *caller) {
     dump_backtrace(15);
 }
 
-void realloc_hook(void *ptr, void *newptr, size_t size, void *caller) {
-    fprintf(stderr, "realloc: ptr=%p, newptr=%p, size=%ld, caller=%p\n", ptr, size, caller);
+void realloc_hook(void *oldPtr, size_t oldSize, void *newPtr, size_t newSize, void *caller) {
+    fprintf(stderr, "realloc: oldPtr=%p, oldSize=%ld, newPtr=%p, newSize=%ld, caller=%p\n", oldPtr, oldSize, newPtr, newSize, caller);
 }
-void free_hook(void *ptr, void *caller) {
-    fprintf(stderr, "free: ptr=%p, caller=%p\n", ptr, caller);
+
+void free_hook(void *ptr, size_t size, void *caller) {
+    fprintf(stderr, "free: ptr=%p, size=%ld, caller=%p\n", ptr, size, caller);
 }
 
 int main() {
@@ -42,3 +43,8 @@ int main() {
     // Your code here...
 }
 ```
+
+## Notes
+
+* Before calling the hooks, this library takes mutex lock to ensure thread safety.
+* You can use all malloc functions in the hook, but hooks are not called recursively.
