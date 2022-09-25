@@ -38,20 +38,29 @@ public:
 static HookSetUp _hookSetUp;
 
 TEST(MallocHookTest, init) {
+    long initial = get_malloc_total();
+
     void *p = malloc(100);
 
     ASSERT_EQ(last_malloc_ptr, p);
     ASSERT_EQ(last_malloc_size, 100);
+    ASSERT_EQ(get_malloc_total(), initial + 100);
 
     free(p);
+
+    ASSERT_EQ(get_malloc_total(), initial);
 }
 
 TEST(MallocHookTest, realloc) {
+    long initial = get_malloc_total();
+
     // realloc as malloc
     unsigned char *p = (unsigned char *)realloc(NULL, 10);
     for (int i = 0; i < 10; i++) {
         p[i] = i;
     }
+
+    ASSERT_EQ(get_malloc_total(), initial + 10);
 
     void *p2 = malloc(200); // dummy, to move realloc area
 
@@ -61,12 +70,18 @@ TEST(MallocHookTest, realloc) {
         ASSERT_EQ(p[i], i);
     }
 
+    ASSERT_EQ(get_malloc_total(), initial + 200 + 100000);
+
     // realloc again
     p = (unsigned char *)realloc(p, 300);
     for (int i = 0; i < 10; i++) {
         ASSERT_EQ(p[i], i);
     }
 
+    ASSERT_EQ(get_malloc_total(), initial + 200 + 300);
+
     free(p2);
     free(p);
+
+    ASSERT_EQ(get_malloc_total(), initial);
 }

@@ -27,6 +27,12 @@ void set_realloc_hook(realloc_hook_t hook);
 void set_free_hook(free_hook_t hook);
 
 /**
+ * Get total malloced size
+ * @return size
+ */
+long get_malloc_total();
+
+/**
  * dump backtrace
  * @param depth Max stack dump depth
  */

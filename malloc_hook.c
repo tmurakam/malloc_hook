@@ -24,6 +24,8 @@ static char *buffer_ptr = static_buffer;
 static bool initializing = false;
 static bool in_hook = false;
 
+static long malloc_total = 0;
+
 typedef struct strMemHeader {
     unsigned long magic;
     size_t size;
@@ -95,13 +97,16 @@ void *malloc(size_t size) {
     ma_init();
     if (org_malloc != NULL) {
         MemHeader *header = org_malloc(sizeof(MemHeader) + size);
-        header->magic = MAGIC;
-        header->size = size;
-        ret = header + 1;
-        if (malloc_hook && !in_hook) {
-            in_hook = true;
-            malloc_hook(ret, size, __builtin_return_address(0));
-            in_hook = false;
+        if (header) {
+            malloc_total += size;
+            header->magic = MAGIC;
+            header->size = size;
+            ret = header + 1;
+            if (malloc_hook && !in_hook) {
+                in_hook = true;
+                malloc_hook(ret, size, __builtin_return_address(0));
+                in_hook = false;
+            }
         }
     } else {
         // called from dlsym
@@ -154,6 +159,8 @@ void *realloc(void *oldPtr, size_t newSize) {
         header->size = newSize;
         newPtr = header + 1;
     }
+    malloc_total += newSize - oldSize;
+
     if (realloc_hook && !in_hook) {
         in_hook = true;
         realloc_hook(oldPtr, oldSize, newPtr, newSize, __builtin_return_address(0));
@@ -167,6 +174,8 @@ void *realloc(void *oldPtr, size_t newSize) {
  * replaced free
  */
 void free(void *ptr) {
+    if (!ptr) return;
+
     pthread_mutex_lock(&ma_mutex);
     if ((char*)ptr < static_buffer || static_buffer + sizeof(static_buffer) <= (char*)ptr) {
         void *real_ptr = ptr;
@@ -176,6 +185,8 @@ void free(void *ptr) {
             real_ptr = header;
             size = header->size;
         }
+        malloc_total -= size;
+
         if (free_hook && !in_hook) {
             in_hook = true;
             free_hook(ptr, size, __builtin_return_address(0));
@@ -184,6 +195,10 @@ void free(void *ptr) {
         org_free(real_ptr);
     }
     pthread_mutex_unlock(&ma_mutex);
+}
+
+long get_malloc_total() {
+    return malloc_total;
 }
 
 /**
