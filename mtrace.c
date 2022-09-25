@@ -23,7 +23,7 @@ static void mtrace_stop() {
 }
 
 static void mtrace_malloc_hook(void *ptr, size_t size, void *caller) {
-    fprintf(fp, "@ %s:[%p] + %p %zx\n", programName, caller, ptr, size);
+    fprintf(fp, "@ %s:[%p] + %p 0x%zx\n", programName, caller, ptr, size);
 }
 
 static void mtrace_realloc_hook(void *oldPtr, size_t oldSize, void *newPtr, size_t newSize, void *caller) {
