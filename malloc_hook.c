@@ -11,9 +11,9 @@
 
 static pthread_mutex_t ma_mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 
-static void (*malloc_hook)(void *ptr, size_t size, void *caller) = NULL;
-static void (*realloc_hook)(void *ptr, void *newptr, size_t size, void *caller) = NULL;
-static void (*free_hook)(void *ptr, void *caller) = NULL;
+static malloc_hook_t malloc_hook = NULL;
+static realloc_hook_t realloc_hook = NULL;
+static free_hook_t free_hook = NULL;
 
 static void * (*org_malloc)(size_t) = NULL;
 static void * (*org_realloc)(void *, size_t) = NULL;
@@ -21,20 +21,20 @@ static void (*org_free)(void *) = NULL;
 
 static char static_buffer[256];
 static char *buffer_ptr = static_buffer;
-static bool ma_initializing = false;
-static bool hooking = false;
+static bool initializing = false;
+static bool in_hook = false;
 
 /**
  * Initializer
  */
 __attribute__((constructor))
 static void ma_init() {
-    if (org_malloc == NULL && !ma_initializing) {
-        ma_initializing = true;
+    if (org_malloc == NULL && !initializing) {
+        initializing = true;
         org_malloc = dlsym(RTLD_NEXT, "malloc");
         org_realloc = dlsym(RTLD_NEXT, "realloc");
         org_free = dlsym(RTLD_NEXT, "free");
-        ma_initializing = false;
+        initializing = false;
     }
 }
 
@@ -50,7 +50,7 @@ static void ma_exit() {
  * @param size
  * @param caller
  */
-void set_malloc_hook(void (*hook)(void *ptr, size_t size, void *caller)) {
+void set_malloc_hook(malloc_hook_t hook) {
     pthread_mutex_lock(&ma_mutex);
     malloc_hook = hook;
     pthread_mutex_unlock(&ma_mutex);
@@ -61,7 +61,7 @@ void set_malloc_hook(void (*hook)(void *ptr, size_t size, void *caller)) {
  * @param size
  * @param caller
  */
-void set_realloc_hook(void (*hook)(void *ptr, void *newptr, size_t size, void *caller)) {
+void set_realloc_hook(realloc_hook_t hook) {
     pthread_mutex_lock(&ma_mutex);
     realloc_hook = hook;
     pthread_mutex_unlock(&ma_mutex);
@@ -72,12 +72,15 @@ void set_realloc_hook(void (*hook)(void *ptr, void *newptr, size_t size, void *c
  * @param ptr
  * @param caller
  */
-void set_free_hook(void (*hook)(void *ptr, void *caller)) {
+void set_free_hook(free_hook_t hook) {
     pthread_mutex_lock(&ma_mutex);
     free_hook = hook;
     pthread_mutex_unlock(&ma_mutex);
 }
 
+/**
+ * replaced malloc
+ */
 void *malloc(size_t size) {
     void *ret;
 
@@ -85,10 +88,10 @@ void *malloc(size_t size) {
     ma_init();
     if (org_malloc != NULL) {
         ret = org_malloc(size);
-        if (malloc_hook && !hooking) {
-            hooking = true;
+        if (malloc_hook && !in_hook) {
+            in_hook = true;
             malloc_hook(ret, size, __builtin_return_address(0));
-            hooking = false;
+            in_hook = false;
         }
     } else {
         // called from dlsym
@@ -102,37 +105,49 @@ void *malloc(size_t size) {
     return ret;
 }
 
+/**
+ * replaced calloc
+ */
 void *calloc(size_t n, size_t size) {
     void *ptr = malloc(n * size);
     memset(ptr, 0, n * size);
     return ptr;
 }
 
+/**
+ * replaced realloc
+ */
 void *realloc(void *ptr, size_t size) {
     pthread_mutex_lock(&ma_mutex);
     void *ret = org_realloc(ptr, size);
-    if (realloc_hook && !hooking) {
-        hooking = true;
+    if (realloc_hook && !in_hook) {
+        in_hook = true;
         realloc_hook(ptr, ret, size, __builtin_return_address(0));
-        hooking = false;
+        in_hook = false;
     }
     pthread_mutex_unlock(&ma_mutex);
     return ret;
 }
 
+/**
+ * replaced free
+ */
 void free(void *ptr) {
     pthread_mutex_lock(&ma_mutex);
     if ((char*)ptr < static_buffer || static_buffer + sizeof(static_buffer) <= (char*)ptr) {
-        if (free_hook && !hooking) {
-            hooking = true;
+        if (free_hook && !in_hook) {
+            in_hook = true;
             free_hook(ptr, __builtin_return_address(0));
-            hooking = false;
+            in_hook = false;
         }
         org_free(ptr);
     }
     pthread_mutex_unlock(&ma_mutex);
 }
 
+/**
+ * @inherit
+ */
 void dump_backtrace(int depth) {
     void *trace[depth];
     int n = backtrace(trace, depth);
