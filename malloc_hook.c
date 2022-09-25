@@ -10,16 +10,17 @@
 static pthread_mutex_t ma_mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 
 static void (*malloc_hook)(void *ptr, size_t size, void *caller) = NULL;
+static void (*realloc_hook)(void *ptr, void *newptr, size_t size, void *caller) = NULL;
 static void (*free_hook)(void *ptr, void *caller) = NULL;
 
 static void * (*org_malloc)(size_t) = NULL;
+static void * (*org_realloc)(void *, size_t) = NULL;
 static void (*org_free)(void *) = NULL;
 
 static char static_buffer[256];
 static char *buffer_ptr = static_buffer;
 static bool ma_initializing = false;
-static bool hooking_malloc = false;
-static bool hooking_free = false;
+static bool hooking = false;
 
 /**
  * Initializer
@@ -29,6 +30,7 @@ static void ma_init() {
     if (org_malloc == NULL && !ma_initializing) {
         ma_initializing = true;
         org_malloc = dlsym(RTLD_NEXT, "malloc");
+        org_realloc = dlsym(RTLD_NEXT, "realloc");
         org_free = dlsym(RTLD_NEXT, "free");
         ma_initializing = false;
     }
@@ -53,6 +55,17 @@ void set_malloc_hook(void (*hook)(void *ptr, size_t size, void *caller)) {
 }
 
 /**
+ * realloc hook
+ * @param size
+ * @param caller
+ */
+void set_realloc_hook(void (*hook)(void *ptr, void *newptr, size_t size, void *caller)) {
+    pthread_mutex_lock(&ma_mutex);
+    realloc_hook = hook;
+    pthread_mutex_unlock(&ma_mutex);
+}
+
+/**
  * free hook
  * @param ptr
  * @param caller
@@ -70,10 +83,10 @@ void *malloc(size_t size) {
     ma_init();
     if (org_malloc != NULL) {
         ret = org_malloc(size);
-        if (malloc_hook && !hooking_malloc) {
-            hooking_malloc = true;
+        if (malloc_hook && !hooking) {
+            hooking = true;
             malloc_hook(ret, size, __builtin_return_address(0));
-            hooking_malloc = false;
+            hooking = false;
         }
     } else {
         // called from dlsym
@@ -93,13 +106,25 @@ void *calloc(size_t n, size_t size) {
     return ptr;
 }
 
+void *realloc(void *ptr, size_t size) {
+    pthread_mutex_lock(&ma_mutex);
+    void *ret = org_realloc(ptr, size);
+    if (realloc_hook && !hooking) {
+        hooking = true;
+        realloc_hook(ptr, ret, size, __builtin_return_address(0));
+        hooking = false;
+    }
+    pthread_mutex_unlock(&ma_mutex);
+    return ret;
+}
+
 void free(void *ptr) {
     pthread_mutex_lock(&ma_mutex);
     if ((char*)ptr < static_buffer || static_buffer + sizeof(static_buffer) <= (char*)ptr) {
-        if (free_hook && !hooking_free) {
-            hooking_free = true;
+        if (free_hook && !hooking) {
+            hooking = true;
             free_hook(ptr, __builtin_return_address(0));
-            hooking_free = false;
+            hooking = false;
         }
         org_free(ptr);
     }
