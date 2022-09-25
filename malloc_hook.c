@@ -4,6 +4,8 @@
 #include <dlfcn.h>
 #include <string.h>
 #include <stdbool.h>
+#include <execinfo.h>
+#include <stdio.h>
 
 #include "malloc_hook.h"
 
@@ -131,4 +133,14 @@ void free(void *ptr) {
     pthread_mutex_unlock(&ma_mutex);
 }
 
+void dump_backtrace(int depth) {
+    void *trace[depth];
+    int n = backtrace(trace, depth);
+    char **symbols = backtrace_symbols(trace, n);
 
+    fprintf(stderr, "backtrace:\n");
+    for (int i = 0; i < n; i++) {
+        fprintf(stderr, "  [%d] %s\n", i, symbols[i]);
+    }
+    free(symbols);
+}

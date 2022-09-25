@@ -28,6 +28,12 @@ void set_realloc_hook(void (*hook)(void *ptr, void *newptr, size_t size, void *c
  */
 void set_free_hook(void (*hook)(void *ptr, void *caller));
 
+/**
+ * dump backtrace
+ * @param depth
+ */
+void dump_backtrace(int depth);
+
 #ifdef __cplusplus
 };
 #endif
