@@ -9,7 +9,7 @@
 
 static pthread_mutex_t ma_mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 
-static void (*malloc_hook)(size_t size, void *caller) = NULL;
+static void (*malloc_hook)(void *ptr, size_t size, void *caller) = NULL;
 static void (*free_hook)(void *ptr, void *caller) = NULL;
 
 static void * (*org_malloc)(size_t) = NULL;
@@ -46,7 +46,7 @@ static void ma_exit() {
  * @param size
  * @param caller
  */
-void set_malloc_hook(void (*hook)(size_t size, void *caller)) {
+void set_malloc_hook(void (*hook)(void *ptr, size_t size, void *caller)) {
     pthread_mutex_lock(&ma_mutex);
     malloc_hook = hook;
     pthread_mutex_unlock(&ma_mutex);
@@ -69,12 +69,12 @@ void *malloc(size_t size) {
     pthread_mutex_lock(&ma_mutex);
     ma_init();
     if (org_malloc != NULL) {
+        ret = org_malloc(size);
         if (malloc_hook && !hooking_malloc) {
             hooking_malloc = true;
-            malloc_hook(size, __builtin_return_address(0));
+            malloc_hook(ret, size, __builtin_return_address(0));
             hooking_malloc = false;
         }
-        ret = org_malloc(size);
     } else {
         // called from dlsym
         ret = buffer_ptr;
