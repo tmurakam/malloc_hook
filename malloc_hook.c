@@ -151,20 +151,22 @@ void *realloc(void *oldPtr, size_t newSize) {
         }
     }
 
-    void *newRealPtr = org_realloc(real_ptr, hasHeader ? newSize + sizeof(MemHeader) : newSize);
-    void *newPtr = newRealPtr;
-    if (hasHeader) {
-        header = newRealPtr;
-        header->magic = MAGIC;
-        header->size = newSize;
-        newPtr = header + 1;
-    }
-    malloc_total += newSize - oldSize;
+    void *newPtr = org_realloc(real_ptr, hasHeader ? newSize + sizeof(MemHeader) : newSize);
+    if (newPtr) {
+        void *newRealPtr = newPtr;
+        if (hasHeader) {
+            header = newRealPtr;
+            header->magic = MAGIC;
+            header->size = newSize;
+            newPtr = header + 1;
+        }
+        malloc_total += newSize - oldSize;
 
-    if (realloc_hook && !in_hook) {
-        in_hook = true;
-        realloc_hook(oldPtr, oldSize, newPtr, newSize, __builtin_return_address(0));
-        in_hook = false;
+        if (realloc_hook && !in_hook) {
+            in_hook = true;
+            realloc_hook(oldPtr, oldSize, newPtr, newSize, __builtin_return_address(0));
+            in_hook = false;
+        }
     }
     pthread_mutex_unlock(&ma_mutex);
     return newPtr;
