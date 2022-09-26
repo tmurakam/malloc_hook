@@ -108,6 +108,11 @@ TEST(MallocHookTest, heap_dump) {
     p = realloc(p, 10000);
 
     malloc_heap_dump(stderr, true);
+    malloc_heap_dump(stderr, false);
 
     free(p);
+}
+
+TEST(MallocHookTest, dump_backtrace) {
+    dump_backtrace(16);
 }

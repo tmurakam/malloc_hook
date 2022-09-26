@@ -8,7 +8,7 @@ TEST(MtraceTest, trace) {
 
     void *p = malloc(100);
     p = realloc(p, 10000);
-    //free(p);
+    free(p);
 
     malloc_hook_muntrace();
 }
