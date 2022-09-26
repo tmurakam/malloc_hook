@@ -70,6 +70,8 @@ int main() {
 Note: If you want to get caller's filename and line number, you need to disable ASLR (address space layout randomization).
 Also you need to calculate address offset, and use `addr2line` utility.
 
+Otherwise, you can use `get_caller_symbol()` in your hook to get program address.
+
 ## mtrace utility
 
 This library provides `mtrace` like functionality too. This is thread safe.
