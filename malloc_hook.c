@@ -57,11 +57,17 @@ static long malloc_total = 0;
  */
 typedef struct strMemHeader {
     unsigned long magic;  // Magic
+    struct strMemHeader *prev;
+    struct strMemHeader *next;
     size_t size;  // allocated memory size (excludes this header)
+    void * caller;
 } MemHeader;
 
 /** MAGIC number of header */
 static const long MAGIC = 0xdeadbeef;
+
+static MemHeader *header_head = NULL;
+static MemHeader *header_tail = NULL;
 
 /**
  * Initializer
@@ -119,6 +125,31 @@ void set_free_hook(free_hook_t hook) {
     pthread_mutex_unlock(&ma_mutex);
 }
 
+void insert_header(MemHeader *header) {
+    if (header_head == NULL) {
+        header->prev = header->next = NULL;
+        header_head = header_tail = header;
+    } else {
+        header_tail->next = header;
+        header->prev = header_tail;
+        header->next = NULL;
+        header_tail = header;
+    }
+}
+
+void remove_header(MemHeader *header) {
+    if (header->prev != NULL) {
+        header->prev->next = header->next;
+    } else {
+        header_head = header->next;
+    }
+    if (header->next != NULL) {
+        header->next->prev = header->prev;
+    } else {
+        header_tail = header->prev;
+    }
+}
+
 /**
  * replaced malloc
  */
@@ -132,13 +163,17 @@ void *malloc(size_t size) {
     if (org_malloc != NULL) {
         MemHeader *header = org_malloc(sizeof(MemHeader) + size);
         if (header) {
+            void *caller = __builtin_return_address(0);
             malloc_total += size;
             header->magic = MAGIC;
             header->size = size;
+            header->caller = caller;
             ret = header + 1;
+            insert_header(header);
+
             if (malloc_hook && !in_hook) {
                 in_hook = true;
-                malloc_hook(ret, size, __builtin_return_address(0));
+                malloc_hook(ret, size, caller);
                 in_hook = false;
             }
         }
@@ -191,23 +226,27 @@ void *realloc(void *oldPtr, size_t newSize) {
         if (hasHeader) {
             real_ptr = header;
             oldSize = header->size;
+            remove_header(header);
         }
     }
 
     void *newPtr = org_realloc(real_ptr, hasHeader ? newSize + sizeof(MemHeader) : newSize);
     if (newPtr) {
         void *newRealPtr = newPtr;
+        void *caller = __builtin_return_address(0);
         if (hasHeader) {
             header = newRealPtr;
             header->magic = MAGIC;
             header->size = newSize;
+            header->caller = caller;
             newPtr = header + 1;
+            insert_header(header);
         }
         malloc_total += newSize - oldSize;
 
         if (realloc_hook && !in_hook) {
             in_hook = true;
-            realloc_hook(oldPtr, oldSize, newPtr, newSize, __builtin_return_address(0));
+            realloc_hook(oldPtr, oldSize, newPtr, newSize, caller);
             in_hook = false;
         }
     }
@@ -233,6 +272,7 @@ void free(void *ptr) {
     if (checkHeader(header)) {
         real_ptr = header;
         size = header->size;
+        remove_header(header);
     }
     malloc_total -= size;
 
@@ -247,6 +287,38 @@ void free(void *ptr) {
 
 long get_malloc_total() {
     return malloc_total;
+}
+
+void malloc_heap_dump(FILE *fp, bool resolve_symbol) {
+    char symbol[1024];
+    size_t total = 0;
+    pthread_mutex_lock(&ma_mutex);
+    fprintf(fp, "== Start heap dump\n");
+
+    int i = 0;
+    for (MemHeader *header = header_tail; header; header = header->prev, i++) { // tail to head
+        if (header->magic != MAGIC) {
+            fprintf(fp, "WARNING: bad header magic [%p], abort dump.", header + 1);
+            break;
+        }
+        if (resolve_symbol && header->caller != NULL) {
+            in_hook = true; // don't call hook in this function
+            get_caller_symbol(header->caller, symbol, sizeof(symbol));
+            in_hook = false;
+        } else {
+            sprintf(symbol, "%p", header->caller);
+        }
+        total += header->size;
+        if (resolve_symbol) {
+            fprintf(fp, "%d: [%p] size=%ld caller=%s", i, header + 1, header->size, symbol);
+        } else {
+            fprintf(fp, "%d: [%p] size=%ld caller=%p", i, header + 1, header->size, header->caller);
+        }
+        fprintf(fp, "\n");
+    }
+
+    fprintf(fp, "== End heap dump: Total heap usage = %ld\n", total);
+    pthread_mutex_unlock(&ma_mutex);
 }
 
 void get_caller_symbol(void *caller, char *buffer, int buflen) {

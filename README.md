@@ -65,12 +65,17 @@ int main() {
 * Before calling the hooks, this library takes mutex lock to ensure thread safety.
 * You can use all `malloc` related functions in the hook, but hooks are not called recursively.
 * The `calloc` calls `malloc` internally.
-* A small memory header (8 bytes) are inserted at head of allocated memory. This is used to track size of the memory.
+* A small memory header (20 bytes) are inserted at head of allocated memory.
+  This is used to track all memory blocks in linked list.
 
 Note: If you want to get caller's filename and line number, you need to disable ASLR (address space layout randomization).
 Also you need to calculate address offset, and use `addr2line` utility.
 
 Otherwise, you can use `get_caller_symbol()` in your hook to get program address.
+
+## Heap dump
+
+You can dump all heaps by calling `malloc_heap_dump()`.
 
 ## mtrace utility
 

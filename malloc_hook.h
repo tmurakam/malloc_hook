@@ -57,6 +57,16 @@ void set_free_hook(free_hook_t hook);
 long get_malloc_total();
 
 /**
+ * Heap dump all heap.
+ *
+ * Note: If set resolve_symbols to true, this function malloc symbol info in this function.
+ *
+ * @param fp   Output stream of dump (stderr, etc)
+ * @param resolve_symbols   Set true to resolve symbols.
+ */
+void malloc_heap_dump(FILE *fp, bool resolve_symbols);
+
+/**
  * Get caller symbol.
  *
  * @param caller Caller address

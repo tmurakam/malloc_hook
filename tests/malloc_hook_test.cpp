@@ -40,6 +40,12 @@ public:
         set_realloc_hook(realloc_hook);
         set_free_hook(free_hook);
     }
+
+    void clear() {
+        set_malloc_hook(NULL);
+        set_realloc_hook(NULL);
+        set_free_hook(NULL);
+    }
 };
 
 static HookSetUp _hookSetUp;
@@ -93,4 +99,15 @@ TEST(MallocHookTest, realloc) {
     free(p);
 
     ASSERT_EQ(get_malloc_total(), initial);
+}
+
+TEST(MallocHookTest, heap_dump) {
+    _hookSetUp.clear();
+
+    void *p = malloc(100);
+    p = realloc(p, 10000);
+
+    malloc_heap_dump(stderr, true);
+
+    free(p);
 }
