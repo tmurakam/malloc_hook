@@ -150,10 +150,7 @@ void remove_header(MemHeader *header) {
     }
 }
 
-/**
- * replaced malloc
- */
-void *malloc(size_t size) {
+inline static void *malloc_sub(size_t size, void *caller) {
     void *ret;
 
     pthread_mutex_lock(&ma_mutex);
@@ -163,7 +160,6 @@ void *malloc(size_t size) {
     if (org_malloc != NULL) {
         MemHeader *header = org_malloc(sizeof(MemHeader) + size);
         if (header) {
-            void *caller = __builtin_return_address(0);
             malloc_total += size;
             header->magic = MAGIC;
             header->size = size;
@@ -191,10 +187,17 @@ void *malloc(size_t size) {
 }
 
 /**
+ * replaced malloc
+ */
+void *malloc(size_t size) {
+    return malloc_sub(size, __builtin_return_address(0));
+}
+
+/**
  * replaced calloc
  */
 void *calloc(size_t n, size_t size) {
-    void *ptr = malloc(n * size);
+    void *ptr = malloc_sub(n * size, __builtin_return_address(0));
     memset(ptr, 0, n * size);
     return ptr;
 }
