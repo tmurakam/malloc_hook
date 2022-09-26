@@ -5,11 +5,14 @@
 
 static void *last_malloc_ptr;
 static int last_malloc_size;
+static char symbol[1024];
 
 void malloc_hook(void *ptr, size_t size, void *caller) {
     fprintf(stderr, "malloc: ptr=%p, size=%ld, caller=%p\n", ptr, size, caller);
     last_malloc_ptr = ptr;
     last_malloc_size = size;
+
+    get_caller_symbol(caller, symbol, sizeof(symbol));
 
     //dump_backtrace(15);
 }

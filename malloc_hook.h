@@ -57,6 +57,15 @@ void set_free_hook(free_hook_t hook);
 long get_malloc_total();
 
 /**
+ * Get caller symbol.
+ *
+ * @param caller Caller address
+ * @param buffer Symbol buffer
+ * @param buflen Length of the buffer
+ */
+void get_caller_symbol(void *caller, char *buffer, int buflen);
+
+/**
  * dump backtrace
  * @param depth Max stack dump depth
  */
@@ -66,8 +75,9 @@ void dump_backtrace(int depth);
  * start memory trace
  * @param argv0  Program name (argv[0])
  * @param filename  Log file name
+ * @param resolve_symbol Set true to resolve caller symbol
  */
-void malloc_hook_mtrace(const char *argv0, const char *filename);
+void malloc_hook_mtrace(const char *argv0, const char *filename, int resolve_symbol);
 
 /**
  * stop memory trace

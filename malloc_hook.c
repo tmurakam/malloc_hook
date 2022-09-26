@@ -249,6 +249,12 @@ long get_malloc_total() {
     return malloc_total;
 }
 
+void get_caller_symbol(void *caller, char *buffer, int buflen) {
+    char **symbols = backtrace_symbols(&caller, 1);
+    strncpy(buffer, symbols[0], buflen);
+    free(symbols);
+}
+
 void dump_backtrace(int depth) {
     void *trace[depth];
     int n = backtrace(trace, depth);

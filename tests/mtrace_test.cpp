@@ -4,7 +4,7 @@
 #include "../malloc_hook.h"
 
 TEST(MtraceTest, trace) {
-    malloc_hook_mtrace("./malloc_hook_test", "mtrace.log");
+    malloc_hook_mtrace("./malloc_hook_test", "mtrace.log", true);
 
     void *p = malloc(100);
     p = realloc(p, 10000);
