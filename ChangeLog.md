@@ -1,5 +1,9 @@
 # ChangeLogs
 
+## v0.0.4 - 2022/09/27
+
+- Add heap dump mark/unmark feature.
+
 ## v0.0.3 - 2022/09/27
 
 - Support to record caller stack frames, not only 1 caller.
