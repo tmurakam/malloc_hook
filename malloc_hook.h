@@ -95,6 +95,15 @@ void dump_backtrace(int depth);
 void malloc_hook_mtrace(const char *argv0, const char *filename, int resolve_symbol, int max_stack_depth);
 
 /**
+ * start memory trace
+ * @param argv0  Program name (argv[0])
+ * @param fp  Log file pointer
+ * @param resolve_symbol Set true to resolve caller symbol
+ * @param max_stack_depth Max depth of stack trace to display
+ */
+void malloc_hook_mtrace_fp(const char *argv0, FILE *fp, int resolve_symbol, int max_stack_depth);
+
+/**
  * stop memory trace
  */
 void malloc_hook_muntrace();

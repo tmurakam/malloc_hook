@@ -27,71 +27,86 @@
 
 #include "malloc_hook.h"
 
-static FILE *fp = NULL;
-static const char *programName;
-static char caller_symbol[1024];
+static FILE *_fp = NULL;
+static const char *_program_name;
 static bool _resolve_symbol;
 static int _max_stack_depth;
+static bool _started = false;
+static bool _need_close = false;
 
-static void mtrace_start(const char *argv0, const char *filename, bool resolve_symbol, int max_stack_depth) {
-    if (!fp) {
-        programName = argv0;
+static void mtrace_start(const char *argv0, bool resolve_symbol, int max_stack_depth) {
+    if (!_started) {
+        _started = true;
+
+        _program_name = argv0;
         _resolve_symbol = resolve_symbol;
         _max_stack_depth = max_stack_depth;
 
-        fp = fopen(filename, "w");
-        fprintf(fp, "= Start\n");
+        fprintf(_fp, "= Start\n");
     }
 }
 
 static void mtrace_stop() {
-    if (fp) {
-        fprintf(fp, "= End\n");
-        fclose(fp);
-        fp = NULL;
+    if (_started) {
+        _started = false;
+        fprintf(_fp, "= End\n");
+
+        if (_need_close) {
+            fclose(_fp);
+            _fp = NULL;
+            _need_close = false;
+        }
     }
 }
 
 
 static void print_caller_symbol(void *caller[]) {
+    char caller_symbol[1024];
     if (_resolve_symbol) {
-        fprintf(fp, " (");
+        fprintf(_fp, " (");
         for (int i = 0; i < _max_stack_depth && i < MALLOC_MAX_BACKTRACE; i++) {
             if (i > 0) {
-                fprintf(fp, ", ");
+                fprintf(_fp, ", ");
             }
             if (!caller[i]) break;
             get_caller_symbol(caller[i], caller_symbol, sizeof(caller_symbol));
-            fprintf(fp, "%s", caller_symbol);
+            fprintf(_fp, "%s", caller_symbol);
         }
-        fprintf(fp, ")\n");
+        fprintf(_fp, ")\n");
     } else {
-        fprintf(fp, "\n");
+        fprintf(_fp, "\n");
     }
 }
 
 static void mtrace_malloc_hook(void *ptr, size_t size, void *caller[]) {
-    fprintf(fp, "@ %s:[%p] + %p 0x%zx", programName, caller[0], ptr, size);
+    fprintf(_fp, "@ %s:[%p] + %p 0x%zx", _program_name, caller[0], ptr, size);
     print_caller_symbol(caller);
 }
 
 static void mtrace_realloc_hook(void *oldPtr, size_t oldSize, void *newPtr, size_t newSize, void *caller[]) {
-    fprintf(fp, "@ %s:[%p] < %p", programName, caller[0], oldPtr);
+    fprintf(_fp, "@ %s:[%p] < %p", _program_name, caller[0], oldPtr);
     print_caller_symbol(caller);
-    fprintf(fp, "@ %s:[%p] > %p 0x%zx", programName, caller[0], newPtr, newSize);
+    fprintf(_fp, "@ %s:[%p] > %p 0x%zx", _program_name, caller[0], newPtr, newSize);
     print_caller_symbol(caller);
 }
 
 static void mtrace_free_hook(void *ptr, size_t size, void *caller[]) {
-    fprintf(fp, "@ %s:[%p] - %p", programName, caller[0], ptr);
+    fprintf(_fp, "@ %s:[%p] - %p", _program_name, caller[0], ptr);
     print_caller_symbol(caller);
 }
 
-void malloc_hook_mtrace(const char *argv0, const char *filename, int resolve_symbol, int max_stack_depth) {
-    mtrace_start(argv0, filename, resolve_symbol, max_stack_depth);
+void malloc_hook_mtrace_fp(const char *argv0, FILE *fp, int resolve_symbol, int max_stack_depth) {
+    _fp = fp;
+    mtrace_start(argv0, resolve_symbol, max_stack_depth);
     set_malloc_hook(mtrace_malloc_hook);
     set_realloc_hook(mtrace_realloc_hook);
     set_free_hook(mtrace_free_hook);
+}
+
+void malloc_hook_mtrace(const char *argv0, const char *filename, int resolve_symbol, int max_stack_depth) {
+    FILE *fp = fopen(filename, "w");
+    _need_close = true;
+    malloc_hook_mtrace_fp(argv0, fp, resolve_symbol, max_stack_depth);
 }
 
 void malloc_hook_muntrace() {
