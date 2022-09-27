@@ -318,20 +318,21 @@ void malloc_heap_dump(FILE *fp, bool resolve_symbol) {
             fprintf(fp, "WARNING: bad header magic [%p], abort dump.", header + 1);
             break;
         }
-        if (resolve_symbol && header->caller != NULL) {
-            in_hook = true; // don't call hook in this function
-            get_caller_symbol(header->caller, symbol, sizeof(symbol));
-            in_hook = false;
-        } else {
-            sprintf(symbol, "%p", header->caller);
-        }
         total += header->size;
-        if (resolve_symbol) {
-            fprintf(fp, "%d: [%p] size=%ld caller=%s", i, header + 1, header->size, symbol);
-        } else {
-            fprintf(fp, "%d: [%p] size=%ld caller=%p", i, header + 1, header->size, header->caller);
+
+        fprintf(fp, "%d: [%p] size=%ld\n", i, header + 1, header->size);
+        in_hook = true; // don't call hook in this function
+        for (int j = 0; j < MALLOC_MAX_BACKTRACE; j++) {
+            void *caller = header->caller[j];
+            if (!caller) break;
+            if (resolve_symbol) {
+                get_caller_symbol(caller, symbol, sizeof(symbol));
+                fprintf(fp, "  - %s\n", symbol);
+            } else {
+                fprintf(fp, "  - %p\n", caller);
+            }
         }
-        fprintf(fp, "\n");
+        in_hook = false;
     }
 
     fprintf(fp, "== End heap dump: Total heap usage = %ld\n", total);

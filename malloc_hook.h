@@ -28,9 +28,9 @@
 extern "C" {
 #endif
 
-typedef void (*malloc_hook_t)(void *ptr, size_t size, void *caller[]);
-typedef void (*realloc_hook_t)(void *oldPtr, size_t oldSize, void *newPtr, size_t newSize, void *caller[]);
-typedef void (*free_hook_t)(void *ptr, size_t size, void *caller[]);
+typedef void (*malloc_hook_t)(void *ptr, size_t size, void *caller_stack[]);
+typedef void (*realloc_hook_t)(void *oldPtr, size_t oldSize, void *newPtr, size_t newSize, void *caller_stack[]);
+typedef void (*free_hook_t)(void *ptr, size_t size, void *caller_stack[]);
 
 // Max stacktrace depth to record.
 // This affects memory overhead because of large memory header size.
