@@ -104,11 +104,15 @@ TEST(MallocHookTest, realloc) {
 TEST(MallocHookTest, heap_dump) {
     _hookSetUp.clear();
 
+    malloc_heap_dump_mark();
+
     void *p = malloc(100);
     p = realloc(p, 10000);
 
     malloc_heap_dump(stderr, true);
     malloc_heap_dump(stderr, false);
+
+    malloc_heap_dump_unmark();
 
     free(p);
 }

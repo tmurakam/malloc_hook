@@ -70,6 +70,9 @@ static const long MAGIC = 0xdeadbeef;
 static MemHeader *header_head = NULL;
 static MemHeader *header_tail = NULL;
 
+/** dump mark: latest entry which NOT be shown */
+static MemHeader *dump_mark = NULL;
+
 /**
  * Initializer
  */
@@ -139,6 +142,10 @@ void insert_header(MemHeader *header) {
 }
 
 void remove_header(MemHeader *header) {
+    if (header == dump_mark) {
+        dump_mark = header->prev;
+    }
+
     if (header->prev != NULL) {
         header->prev->next = header->next;
     } else {
@@ -150,6 +157,7 @@ void remove_header(MemHeader *header) {
         header_tail = header->prev;
     }
 }
+
 static void** get_backtrace(void **trace, int skip) {
     void *_trace[MALLOC_MAX_BACKTRACE + skip];
     if (!_in_backtrace) { // guard malloc in backtrace
@@ -306,6 +314,18 @@ long get_malloc_total() {
     return malloc_total;
 }
 
+void malloc_heap_dump_mark() {
+    pthread_mutex_lock(&ma_mutex);
+    dump_mark = header_tail;
+    pthread_mutex_unlock(&ma_mutex);
+}
+
+void malloc_heap_dump_unmark() {
+    pthread_mutex_lock(&ma_mutex);
+    dump_mark = NULL;
+    pthread_mutex_unlock(&ma_mutex);
+}
+
 void malloc_heap_dump(FILE *fp, bool resolve_symbol) {
     char symbol[1024];
     size_t total = 0;
@@ -314,6 +334,9 @@ void malloc_heap_dump(FILE *fp, bool resolve_symbol) {
 
     int i = 0;
     for (MemHeader *header = header_tail; header; header = header->prev, i++) { // tail to head
+        if (header == dump_mark) {
+            break;
+        }
         if (header->magic != MAGIC) {
             fprintf(fp, "WARNING: bad header magic [%p], abort dump.", header + 1);
             break;

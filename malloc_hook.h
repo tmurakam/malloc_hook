@@ -62,6 +62,7 @@ long get_malloc_total();
 
 /**
  * Heap dump all heap.
+ * If heap dump mark is set, only newer entry than the mark will be displayed.
  *
  * Note: If set resolve_symbols to true, this function malloc symbol info in this function.
  *
@@ -69,6 +70,17 @@ long get_malloc_total();
  * @param resolve_symbols   Set true to resolve symbols.
  */
 void malloc_heap_dump(FILE *fp, bool resolve_symbols);
+
+/**
+ * Mark heap dump point.
+ * If the mark is set, only newer entry than the mark will be displayed by malloc_heap_dump().
+ */
+void malloc_heap_dump_mark();
+
+/**
+ * Unmark heap dump point.
+ */
+void malloc_heap_dump_unmark();
 
 /**
  * Get caller symbol.
