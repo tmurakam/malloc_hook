@@ -28,9 +28,13 @@
 extern "C" {
 #endif
 
-typedef void (*malloc_hook_t)(void *ptr, size_t size, void *caller);
-typedef void (*realloc_hook_t)(void *oldPtr, size_t oldSize, void *newPtr, size_t newSize, void *caller);
-typedef void (*free_hook_t)(void *ptr, size_t size, void *caller);
+typedef void (*malloc_hook_t)(void *ptr, size_t size, void *caller[]);
+typedef void (*realloc_hook_t)(void *oldPtr, size_t oldSize, void *newPtr, size_t newSize, void *caller[]);
+typedef void (*free_hook_t)(void *ptr, size_t size, void *caller[]);
+
+// Max stacktrace depth to record.
+// This affects memory overhead because of large memory header size.
+#define MALLOC_MAX_BACKTRACE 5
 
 /**
  * set malloc hook
@@ -86,8 +90,9 @@ void dump_backtrace(int depth);
  * @param argv0  Program name (argv[0])
  * @param filename  Log file name
  * @param resolve_symbol Set true to resolve caller symbol
+ * @param max_stack_depth Max depth of stack trace to display
  */
-void malloc_hook_mtrace(const char *argv0, const char *filename, int resolve_symbol);
+void malloc_hook_mtrace(const char *argv0, const char *filename, int resolve_symbol, int max_stack_depth);
 
 /**
  * stop memory trace

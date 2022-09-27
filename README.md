@@ -34,21 +34,23 @@ See `malloc_hook.h` for full API documents.
 
 Here is an example.
 
+Note: Max depth of caller stack is defined as `MALLOC_MAX_BACKTRACE` in malloc_hook.h.
+
 ```c
 #include "mallok_hook.h"
 
-void malloc_hook(void *ptr, size_t size, void *caller) {
-    fprintf(stderr, "malloc: ptr=%p, size=%ld, caller=%p\n", ptr, size, caller);
+void malloc_hook(void *ptr, size_t size, void **caller) {
+    fprintf(stderr, "malloc: ptr=%p, size=%ld, caller=%p\n", ptr, size, caller[0]);
     dump_backtrace(15);
 }
 
-void realloc_hook(void *oldPtr, size_t oldSize, void *newPtr, size_t newSize, void *caller) {
+void realloc_hook(void *oldPtr, size_t oldSize, void *newPtr, size_t newSize, void **caller) {
     fprintf(stderr, "realloc: oldPtr=%p, oldSize=%ld, newPtr=%p, newSize=%ld, caller=%p\n", 
-            oldPtr, oldSize, newPtr, newSize, caller);
+            oldPtr, oldSize, newPtr, newSize, caller[0]);
 }
 
-void free_hook(void *ptr, size_t size, void *caller) {
-    fprintf(stderr, "free: ptr=%p, size=%ld, caller=%p\n", ptr, size, caller);
+void free_hook(void *ptr, size_t size, void **caller) {
+    fprintf(stderr, "free: ptr=%p, size=%ld, caller=%p\n", ptr, size, caller[0]);
 }
 
 int main() {

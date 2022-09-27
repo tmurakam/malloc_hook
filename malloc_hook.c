@@ -51,6 +51,7 @@ static char static_buffer[256];
 static char *buffer_ptr = static_buffer;
 
 static long malloc_total = 0;
+static bool _in_backtrace = false;
 
 /**
  * Memory header
@@ -60,7 +61,7 @@ typedef struct strMemHeader {
     struct strMemHeader *prev;
     struct strMemHeader *next;
     size_t size;  // allocated memory size (excludes this header)
-    void * caller;
+    void *caller[MALLOC_MAX_BACKTRACE];
 } MemHeader;
 
 /** MAGIC number of header */
@@ -149,8 +150,22 @@ void remove_header(MemHeader *header) {
         header_tail = header->prev;
     }
 }
+static void** get_backtrace(void **trace, int skip) {
+    void *_trace[MALLOC_MAX_BACKTRACE + skip];
+    if (!_in_backtrace) { // guard malloc in backtrace
+        _in_backtrace = true;
+        backtrace(_trace, MALLOC_MAX_BACKTRACE + skip);
+        _in_backtrace = false;
+        for (int i = 0; i < MALLOC_MAX_BACKTRACE; i++) {
+            trace[i] = _trace[i + skip];
+        }
+    } else {
+        memset(trace, 0, sizeof(void *) * MALLOC_MAX_BACKTRACE);
+    }
+    return trace;
+}
 
-inline static void *malloc_sub(size_t size, void *caller) {
+inline static void *malloc_sub(size_t size) {
     void *ret;
 
     pthread_mutex_lock(&ma_mutex);
@@ -163,13 +178,13 @@ inline static void *malloc_sub(size_t size, void *caller) {
             malloc_total += size;
             header->magic = MAGIC;
             header->size = size;
-            header->caller = caller;
+            get_backtrace(header->caller, 3);
             ret = header + 1;
             insert_header(header);
 
             if (malloc_hook && !in_hook) {
                 in_hook = true;
-                malloc_hook(ret, size, caller);
+                malloc_hook(ret, size, header->caller);
                 in_hook = false;
             }
         }
@@ -190,14 +205,14 @@ inline static void *malloc_sub(size_t size, void *caller) {
  * replaced malloc
  */
 void *malloc(size_t size) {
-    return malloc_sub(size, __builtin_return_address(0));
+    return malloc_sub(size);
 }
 
 /**
  * replaced calloc
  */
 void *calloc(size_t n, size_t size) {
-    void *ptr = malloc_sub(n * size, __builtin_return_address(0));
+    void *ptr = malloc_sub(n * size);
     memset(ptr, 0, n * size);
     return ptr;
 }
@@ -236,12 +251,11 @@ void *realloc(void *oldPtr, size_t newSize) {
     void *newPtr = org_realloc(real_ptr, hasHeader ? newSize + sizeof(MemHeader) : newSize);
     if (newPtr) {
         void *newRealPtr = newPtr;
-        void *caller = __builtin_return_address(0);
         if (hasHeader) {
             header = newRealPtr;
             header->magic = MAGIC;
             header->size = newSize;
-            header->caller = caller;
+            get_backtrace(header->caller, 2);
             newPtr = header + 1;
             insert_header(header);
         }
@@ -249,7 +263,7 @@ void *realloc(void *oldPtr, size_t newSize) {
 
         if (realloc_hook && !in_hook) {
             in_hook = true;
-            realloc_hook(oldPtr, oldSize, newPtr, newSize, caller);
+            realloc_hook(oldPtr, oldSize, newPtr, newSize, hasHeader ? header->caller : NULL);
             in_hook = false;
         }
     }
@@ -281,7 +295,7 @@ void free(void *ptr) {
 
     if (free_hook && !in_hook) {
         in_hook = true;
-        free_hook(ptr, size, __builtin_return_address(0));
+        free_hook(ptr, size, header->caller);
         in_hook = false;
     }
     org_free(real_ptr);

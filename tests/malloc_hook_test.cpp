@@ -7,8 +7,8 @@ static void *last_malloc_ptr;
 static int last_malloc_size;
 static char symbol[1024];
 
-void malloc_hook(void *ptr, size_t size, void *caller) {
-    fprintf(stderr, "malloc: ptr=%p, size=%ld, caller=%p\n", ptr, size, caller);
+void malloc_hook(void *ptr, size_t size, void *caller[]) {
+    fprintf(stderr, "malloc: ptr=%p, size=%ld, caller=%p\n", ptr, size, caller[0]);
     last_malloc_ptr = ptr;
     last_malloc_size = size;
 
@@ -17,14 +17,14 @@ void malloc_hook(void *ptr, size_t size, void *caller) {
     //dump_backtrace(15);
 }
 
-void realloc_hook(void *oldPtr, size_t oldSize, void *newPtr, size_t newSize, void *caller) {
-    fprintf(stderr, "realloc: oldPtr=%p, oldSize=%ld, newPtr=%p, newSize=%ld, caller=%p\n", oldPtr, oldSize, newPtr, newSize, caller);
+void realloc_hook(void *oldPtr, size_t oldSize, void *newPtr, size_t newSize, void *caller[]) {
+    fprintf(stderr, "realloc: oldPtr=%p, oldSize=%ld, newPtr=%p, newSize=%ld, caller=%p\n", oldPtr, oldSize, newPtr, newSize, caller[0]);
 
     //dump_backtrace(15);
 }
 
-void free_hook(void *ptr, size_t size, void *caller) {
-    fprintf(stderr, "free: ptr=%p, size=%ld, caller=%p\n", ptr, size, caller);
+void free_hook(void *ptr, size_t size, void *caller[]) {
+    fprintf(stderr, "free: ptr=%p, size=%ld, caller=%p\n", ptr, size, caller[0]);
 
     //dump_backtrace(15);
 }
