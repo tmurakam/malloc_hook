@@ -30,6 +30,7 @@
 #include <stdbool.h>
 #include <execinfo.h>
 #include <stdio.h>
+#include <assert.h>
 
 #include "malloc_hook.h"
 
@@ -158,22 +159,24 @@ void remove_header(MemHeader *header) {
     }
 }
 
-static void** get_backtrace(void **trace, int skip) {
+__attribute__((noinline))
+static void** get_backtrace(void **trace) {
+    const int skip = 2; // this + caller = 2
     void *_trace[MALLOC_MAX_BACKTRACE + skip];
+    memset(_trace, 0, sizeof(_trace));
     if (!_in_backtrace) { // guard malloc in backtrace
         _in_backtrace = true;
-        backtrace(_trace, MALLOC_MAX_BACKTRACE + skip);
+        int n = backtrace(_trace, MALLOC_MAX_BACKTRACE + skip);
         _in_backtrace = false;
-        for (int i = 0; i < MALLOC_MAX_BACKTRACE; i++) {
-            trace[i] = _trace[i + skip];
-        }
+        memcpy(trace, _trace + skip, sizeof(void*) * MALLOC_MAX_BACKTRACE);
     } else {
         memset(trace, 0, sizeof(void *) * MALLOC_MAX_BACKTRACE);
+        trace[0] = __builtin_return_address(1);
     }
     return trace;
 }
 
-inline static void *malloc_sub(size_t size) {
+static void *malloc_sub(size_t size, void **callers) {
     void *ret;
 
     pthread_mutex_lock(&ma_mutex);
@@ -186,7 +189,7 @@ inline static void *malloc_sub(size_t size) {
             malloc_total += size;
             header->magic = MAGIC;
             header->size = size;
-            get_backtrace(header->caller, 3);
+            memcpy(header->caller, callers, sizeof(void*) * MALLOC_MAX_BACKTRACE);
             ret = header + 1;
             insert_header(header);
 
@@ -213,14 +216,22 @@ inline static void *malloc_sub(size_t size) {
  * replaced malloc
  */
 void *malloc(size_t size) {
-    return malloc_sub(size);
+    void *callers[MALLOC_MAX_BACKTRACE];
+    get_backtrace(callers);
+    //assert(callers[0] == __builtin_return_address(0));
+
+    return malloc_sub(size, callers);
 }
 
 /**
  * replaced calloc
  */
 void *calloc(size_t n, size_t size) {
-    void *ptr = malloc_sub(n * size);
+    void *callers[MALLOC_MAX_BACKTRACE];
+    get_backtrace(callers);
+    //assert(callers[0] == __builtin_return_address(0));
+
+    void *ptr = malloc_sub(n * size, callers);
     memset(ptr, 0, n * size);
     return ptr;
 }
@@ -268,7 +279,8 @@ void *realloc(void *oldPtr, size_t newSize) {
             header = newRealPtr;
             header->magic = MAGIC;
             header->size = newSize;
-            get_backtrace(header->caller, 2);
+            get_backtrace(header->caller);
+            //assert(header->caller[0] == __builtin_return_address(0));
             newPtr = header + 1;
             insert_header(header);
         }
