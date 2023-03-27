@@ -347,6 +347,7 @@ void malloc_heap_dump(FILE *fp, bool resolve_symbol) {
     char symbol[1024];
     size_t total = 0;
     pthread_mutex_lock(&ma_mutex);
+    fprintf(fp, "== Total memory usage = %ld\n", malloc_total);
     fprintf(fp, "== Start heap dump\n");
 
     int i = 0;
