@@ -45,11 +45,11 @@ ARGF.each do |line|
     size = m[5].to_i(16)
 
     case type
-    when "+"
+    when "+", ">"
       block = MemoryBlock.new(ptr, size, caller)
       blocks[ptr] = block
 
-    when "-"
+    when "-", "<"
       blocks.delete(ptr)
     end
   end
