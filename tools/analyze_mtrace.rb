@@ -24,8 +24,8 @@ class Stat
   end
 
   def add(size)
-    @size = @size + size
-    @count = @count + 1
+    @size += size
+    @count += 1
   end
 
   def show
@@ -38,14 +38,14 @@ blocks = {}
 
 # parse mtrace
 ARGF.each do |line|
-  if m = line.match(/^@ (\S+):\[(\S+)\] (\S) (\S+) 0x(\S+)/)
+  if m = line.match(/^@ (\S+):\[(\S+)\] (\S) (\S+)( 0x(\S+))?/)
     caller = m[2]
     type = m[3]  # +, -, <, >
     ptr = m[4]
-    size = m[5].to_i(16)
 
     case type
     when "+", ">"
+      size = m[6].to_i(16)
       block = MemoryBlock.new(ptr, size, caller)
       blocks[ptr] = block
 
@@ -55,7 +55,7 @@ ARGF.each do |line|
   end
 end
 
-# caller, 
+# caller, block
 stats = {}
 
 # collect
@@ -70,7 +70,15 @@ blocks.each{|ptr, block|
 }
 
 # show
+total_count = 0
+total_size = 0
+
 puts "# caller\tcount\ttotal_size"
 stats.sort_by { |_, stat| stat.size }.reverse.each do |_, stat|
   stat.show
+  total_count += stat.count
+  total_size += stat.size
 end
+
+puts
+puts "total\t#{total_count}\t#{total_size}"
