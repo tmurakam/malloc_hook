@@ -239,6 +239,11 @@ static bool checkHeader(MemHeader *header) {
  * replaced realloc
  */
 void *realloc(void *oldPtr, size_t newSize) {
+    if (newSize == 0) {
+	free(oldPtr);
+	return NULL;
+    }
+
     pthread_mutex_lock(&ma_mutex);
 
     bool hasHeader = true;
