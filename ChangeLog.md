@@ -1,5 +1,9 @@
 # ChangeLogs
 
+## v0.0.5 - 2025/11/11
+
+- Fix: Support newSize=0 for realloc
+
 ## v0.0.4 - 2022/09/27
 
 - Add heap dump mark/unmark feature.
